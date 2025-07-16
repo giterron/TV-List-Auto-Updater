@@ -1,0 +1,44 @@
+name: Update TV List Daily
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'   # 每4小时运行一次
+  workflow_dispatch:        # 允许手动触发
+  push:                     # 当tv-list.txt被修改时触发
+    paths:
+      - 'scripts/force-update.txt'
+
+jobs:
+  update-list:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Fetch live TV list
+      id: fetch
+      run: |
+        python ./scripts/fetch_list.py
+        
+    - name: Commit changes
+      if: ${{ success() }}
+      run: |
+        git config user.name "GitHub Actions"
+        git config user.email "actions@users.noreply.github.com"
+        git add ./public/tv-list.txt
+        git commit -m "Update TV list at $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+        git push
+        
+    - name: Create output
+      run: |
+        echo "update_time=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+      if: ${{ success() }}
+      
+    outputs:
+      update_time: ${{ steps.create-output.outputs.update_time }}
